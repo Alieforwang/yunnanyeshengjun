@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云南野生菌智能识别系统</title>
+    <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="../static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body {
+            background-color: #e8f5e9; /* 柔和森林绿 */
+            color: #3e3a2f;
+        }
+        .logo {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #5d7a3a; /* 深绿色 */
+            letter-spacing: 2px;
+        }
+        .upload-hint {
+            color: #7c5c36; /* 蘑菇棕 */
+        }
+        .mushroom-help {
+            font-size: 0.95rem;
+            color: #8d6e63; /* 土棕色 */
+            margin-top: 8px;
+        }
+        .danger-tip {
+            color: #b22222;
+            font-weight: bold;
+        }
+        .stat-title {
+            color: #5d7a3a;
+        }
+        .panel, .info-card, .data-table table {
+            background: #f9fbe7;
+            border-radius: 10px;
+            box-shadow: 0 2px 12px rgba(60,60,60,0.06);
+        }
+        .nav-bar, .bottom-nav1, .bottom-nav4 {
+            background: #c5e1a5;
+        }
+        .nav-btn.active, .nav-btn:hover {
+            background: #7cb342;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载动画 -->
+    <div class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <!-- 顶部导航栏 -->
+    <nav class="nav-bar">
+        <div class="logo">云南野生菌智能识别系统</div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <!-- 左侧面板 -->
+        <div class="left-panel">
+            <!-- 上传区域 -->
+            <div class="upload-section panel">
+                <h2>上传区域</h2>
+                <div class="tab-content active" id="upload-content">
+                    <div class="upload-area" id="dropZone">
+                        <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden>
+                        <div class="upload-hint">
+                            <span class="upload-icon">🍄</span>
+                            <p>点击或拖拽图片/视频到此处进行野生菌识别</p>
+                        </div>
+                        <div id="previewArea" class="preview-area"></div>
+                    </div>
+                    <!-- <button class="upload-btn btn-primary" onclick="document.getElementById('fileInput').click();">
+                        选择图片/视频
+                    </button> -->
+                </div>
+            
+            </div>
+
+            <!-- 检测结果区域 -->
+            <div class="detection-section panel">
+                <h2>识别结果</h2>
+                <div id="resultArea" class="result-content">
+                    <!-- 识别结果示例 -->
+                    <!--
+                    <div class="result-card">
+                        <div class="result-mushroom">松茸</div>
+                        <div class="result-confidence">置信度：98.5%</div>
+                        <div class="danger-tip">提示：该菌类可食用</div>
+                        <div class="result-time">识别时间：2024-05-01 14:23:11</div>
+                    </div>
+                    -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧面板 -->
+        <div class="right-panel">
+            <!-- 数据分析区域 -->
+            <div class="analysis-section panel">
+                <div class="panel-header">
+                    <h2>识别数据分析</h2>
+                </div>
+                <!-- 统计卡片 -->
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <div class="stat-title">今日识别菌类数</div>
+                        <div class="stat-value" id="todayCount">128</div>
+                        <div class="stat-trend up">↑ 12%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">累计识别</div>
+                        <div class="stat-value" id="totalCount">1024</div>
+                        <div class="stat-trend up">↑ 5%</div>
+                    </div>
+
+                </div>
+                <!-- 图表区域 -->
+                <div class="charts-container">
+                    <div class="chart-box">
+                        <h3>菌类分布</h3>
+                        <div id="typeChart" class="chart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航栏，仅保留主页和历史记录 -->
+    <div class="bottom-nav1">
+        <button class="nav-btn active" onclick="window.location.href='{{ url_for('home') }}'">
+            <span class="btn-icon">🏠</span>
+            <span class="btn-text">识别主页</span>
+        </button>
+    </div>
+    <div class="bottom-nav4">
+        <button class="nav-btn" onclick="window.location.href='{{ url_for('history') }}'">
+            <span class="btn-icon">📝</span>
+            <span class="btn-text">历史记录</span>
+        </button>
+    </div>
+
+    <script src="../static/js/main.js"></script>
+</body>
+</html> 
