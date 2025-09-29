@@ -80,6 +80,20 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         card.appendChild(resultImg);
         resultArea.appendChild(card);
+
+        // 刷新所有统计数据
+        refreshAllStats();
+    }
+
+    // 刷新图表数据
+    function refreshCharts() {
+        const typeChartElement = document.getElementById('typeChart');
+        if (typeChartElement) {
+            const typeChart = echarts.getInstanceByDom(typeChartElement);
+            if (typeChart) {
+                loadMushroomStats(typeChart);
+            }
+        }
     }
 
     function displayVideo(file) {
@@ -93,53 +107,116 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化图表
     initCharts();
 
+    // 加载统计概览数据
+    loadOverviewStats();
+
     // 图表初始化函数
     function initCharts() {
-        const timeChart = echarts.init(document.getElementById('timeChart'));
-        const typeChart = echarts.init(document.getElementById('typeChart'));
+        const typeChartElement = document.getElementById('typeChart');
+        if (!typeChartElement) {
+            console.error('未找到typeChart元素');
+            return;
+        }
 
-        // 时间段分布折线图
-        timeChart.setOption({
-            title: { text: '时间段分布' },
-            tooltip: { trigger: 'axis', formatter: '{b}: {c}次' },
-            xAxis: { 
-                data: ['6-9时', '9-12时', '12-15时', '15-18时', '18-21时'],
-                axisLine: { lineStyle: { color: '#666' } }
-            },
-            yAxis: { axisLine: { lineStyle: { color: '#666' } } },
-            series: [{
-                type: 'line',
-                data: [5, 20, 36, 10, 10],
-                smooth: true,
-                lineStyle: { width: 2, color: '#1890ff' },
-                symbol: 'circle',
-                symbolSize: 8,
-                itemStyle: { color: '#1890ff' },
-                label: {
-                    show: true,
-                    position: 'top',
-                    formatter: '{c}次',
-                    fontSize: 12,
-                    color: '#666'
-                },
-                areaStyle: {
-                    color: {
-                        type: 'linear',
-                        x: 0, y: 0, x2: 0, y2: 1,
-                        colorStops: [
-                            { offset: 0, color: 'rgba(24,144,255,0.3)' },
-                            { offset: 1, color: 'rgba(24,144,255,0.1)' }
-                        ]
-                    }
-                }
-            }]
+        const typeChart = echarts.init(typeChartElement);
+
+        // 加载菌类分布数据
+        loadMushroomStats(typeChart);
+
+        // 自适应
+        window.addEventListener('resize', function() {
+            typeChart.resize();
         });
+    }
 
-        // 假数据渲染菌类分布柱形图
+    // 加载菌类统计数据
+    function loadMushroomStats(chart) {
+        fetch('/api/stats/classes')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const names = data.data.map(item => item.name);
+                    const counts = data.data.map(item => item.count);
+
+                    chart.setOption({
+                        title: {
+                            text: '菌类分布',
+                            textStyle: {
+                                color: '#5d7a3a',
+                                fontSize: 16,
+                                fontWeight: 'bold'
+                            }
+                        },
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: { type: 'shadow' },
+                            formatter: function(params) {
+                                const d = params[0];
+                                return `${d.name}: ${d.value}次`;
+                            }
+                        },
+                        xAxis: {
+                            type: 'category',
+                            data: names,
+                            axisLabel: {
+                                rotate: 30,
+                                color: '#5d7a3a',
+                                fontWeight: 'bold',
+                                fontSize: 11
+                            },
+                            axisLine: { lineStyle: { color: '#7c5c36' } }
+                        },
+                        yAxis: {
+                            type: 'value',
+                            axisLine: { lineStyle: { color: '#7c5c36' } },
+                            axisLabel: { color: '#5d7a3a' },
+                            splitLine: { lineStyle: { color: '#eee' } }
+                        },
+                        series: [{
+                            type: 'bar',
+                            data: counts,
+                            barWidth: '50%',
+                            itemStyle: {
+                                color: '#7cb342',
+                                borderRadius: [6, 6, 0, 0]
+                            },
+                            label: {
+                                show: true,
+                                position: 'top',
+                                color: '#5d7a3a',
+                                fontWeight: 'bold',
+                                fontSize: 12,
+                                formatter: '{c}次'
+                            }
+                        }]
+                    });
+                } else {
+                    console.error('加载菌类统计数据失败:', data.message);
+                    // 显示默认数据
+                    showDefaultChart(chart);
+                }
+            })
+            .catch(error => {
+                console.error('获取菌类统计数据出错:', error);
+                // 显示默认数据
+                showDefaultChart(chart);
+            });
+    }
+
+    // 显示默认图表数据
+    function showDefaultChart(chart) {
         const names = ['奶浆菌','干巴菌','松茸','松露','牛肝菌','珊瑚菌','竹荪','羊肚菌','见手青','青头菌','鸡枞菌','鸡油菌'];
-        const counts = [5, 2, 8, 1, 6, 3, 4, 7, 0, 2, 9, 1];
-        typeChart.setOption({
-            title: { text: '菌类分布' },
+        const counts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        chart.setOption({
+            title: {
+                text: '菌类分布',
+                textStyle: {
+                    color: '#5d7a3a',
+                    fontSize: 16,
+                    fontWeight: 'bold'
+                }
+            },
             tooltip: {
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
@@ -151,19 +228,28 @@ document.addEventListener('DOMContentLoaded', function() {
             xAxis: {
                 type: 'category',
                 data: names,
-                axisLabel: { rotate: 30, color: '#5d7a3a', fontWeight: 'bold', fontSize: 13 },
+                axisLabel: {
+                    rotate: 30,
+                    color: '#5d7a3a',
+                    fontWeight: 'bold',
+                    fontSize: 11
+                },
                 axisLine: { lineStyle: { color: '#7c5c36' } }
             },
             yAxis: {
                 type: 'value',
                 axisLine: { lineStyle: { color: '#7c5c36' } },
+                axisLabel: { color: '#5d7a3a' },
                 splitLine: { lineStyle: { color: '#eee' } }
             },
             series: [{
                 type: 'bar',
                 data: counts,
                 barWidth: '50%',
-                itemStyle: { color: '#7cb342', borderRadius: [6, 6, 0, 0] },
+                itemStyle: {
+                    color: '#7cb342',
+                    borderRadius: [6, 6, 0, 0]
+                },
                 label: {
                     show: true,
                     position: 'top',
@@ -174,11 +260,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }]
         });
+    }
 
-        // 自适应
-        window.addEventListener('resize', function() {
-            timeChart.resize();
-            typeChart.resize();
-        });
+    // 加载统计概览数据
+    function loadOverviewStats() {
+        fetch('/api/stats/overview')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 更新今日识别数
+                    const todayCountElement = document.getElementById('todayCount');
+                    if (todayCountElement) {
+                        todayCountElement.textContent = data.data.today_count;
+                    }
+
+                    // 更新总识别数
+                    const totalCountElement = document.getElementById('totalCount');
+                    if (totalCountElement) {
+                        totalCountElement.textContent = data.data.total_count;
+                    }
+                } else {
+                    console.error('加载统计概览失败:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('获取统计概览出错:', error);
+            });
+    }
+
+    // 刷新所有统计数据
+    function refreshAllStats() {
+        loadOverviewStats();
+        refreshCharts();
     }
 });

@@ -164,8 +164,8 @@ def detect_mushroom():
         user_id = 1
         file_type = file.content_type if hasattr(file, 'content_type') else 'image'
         db.update_data(
-            "INSERT INTO analysis_records (user_id, file_type, file_path, result_path, detect_type, location, confidence, created_at, danger_tip) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (user_id, file_type, upload_path, result_path_db, class_name, '', confidence, detect_time, danger_tip)
+            "INSERT INTO analysis_records (user_id, file_type, file_path, result_path, detect_type, mushroom_type, location, confidence, created_at, danger_tip) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (user_id, file_type, upload_path, result_path_db, class_name, class_name, '', confidence, detect_time, danger_tip)
         )
         db.disconnect()
     except Exception as e:
@@ -182,21 +182,75 @@ def detect_mushroom():
 @app.route('/api/stats/classes', methods=['GET'])
 def stats_classes():
     try:
-        # 读取类别
-        with open('classes.txt', encoding='utf-8') as f:
-            class_list = [line.strip() for line in f if line.strip()]
+        # 使用内置的MUSHROOM_CLASSES，与检测函数保持一致
+        class_list = MUSHROOM_CLASSES
+
         db = DBM.DatabaseManager()
         db.connect()
-        # 查询每个类别的数量
-        sql = "SELECT mushroom_type, COUNT(*) FROM analysis_records GROUP BY mushroom_type"
-        result = db.query_data(sql)
+
+        # 尝试使用detect_type字段，如果没有数据则使用mushroom_type字段
+        sql_detect_type = "SELECT detect_type, COUNT(*) FROM analysis_records WHERE detect_type IS NOT NULL GROUP BY detect_type"
+        result = db.query_data(sql_detect_type)
+
+        count_map = {}
+        if result:
+            for row in result:
+                count_map[row[0]] = row[1]
+
+        # 如果detect_type没有数据，尝试mushroom_type
+        if not count_map:
+            sql_mushroom_type = "SELECT mushroom_type, COUNT(*) FROM analysis_records WHERE mushroom_type IS NOT NULL GROUP BY mushroom_type"
+            result = db.query_data(sql_mushroom_type)
+            if result:
+                for row in result:
+                    count_map[row[0]] = row[1]
+
         db.disconnect()
-        count_map = {row[0]: row[1] for row in result}
+
+        # 构建返回数据，确保所有菌类都有数据
         data = []
         for cname in class_list:
             data.append({"name": cname, "count": count_map.get(cname, 0)})
+
+        print(f"菌类统计数据: {data}")  # 调试信息
         return jsonify({"success": True, "data": data})
     except Exception as e:
+        print(f"获取菌类统计数据错误: {str(e)}")
+        return jsonify({"success": False, "message": str(e)})
+
+@app.route('/api/stats/overview', methods=['GET'])
+def stats_overview():
+    try:
+        db = DBM.DatabaseManager()
+        db.connect()
+
+        # 获取今日识别数
+        today_sql = "SELECT COUNT(*) FROM analysis_records WHERE DATE(created_at) = CURDATE()"
+        today_result = db.query_data(today_sql)
+        today_count = today_result[0][0] if today_result else 0
+
+        # 获取总识别数
+        total_sql = "SELECT COUNT(*) FROM analysis_records"
+        total_result = db.query_data(total_sql)
+        total_count = total_result[0][0] if total_result else 0
+
+        # 获取最新识别时间
+        latest_sql = "SELECT MAX(created_at) FROM analysis_records"
+        latest_result = db.query_data(latest_sql)
+        latest_time = latest_result[0][0] if latest_result and latest_result[0][0] else None
+
+        db.disconnect()
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "today_count": today_count,
+                "total_count": total_count,
+                "latest_time": latest_time.strftime('%Y-%m-%d %H:%M:%S') if latest_time else None
+            }
+        })
+    except Exception as e:
+        print(f"获取统计概览错误: {str(e)}")
         return jsonify({"success": False, "message": str(e)})
 
 if __name__ == '__main__':

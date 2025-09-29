@@ -139,6 +139,7 @@ class DatabaseManager():
                 location VARCHAR(255),
                 confidence FLOAT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                danger_tip TEXT,
                 FOREIGN KEY (user_id) REFERENCES user(id)
             );
             """
@@ -163,31 +164,112 @@ class DatabaseManager():
             cursor.execute(create_analysis_records_table)
             cursor.execute(create_stats_table)
             
-            # 添加索引
+            # 添加索引（MySQL兼容方式）
             try:
+                # 检查索引是否存在
                 cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_analysis_user_time 
-                ON analysis_records (user_id, created_at DESC)
-                """)
+                SELECT COUNT(1) FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE table_schema = %s AND table_name = 'analysis_records'
+                AND index_name = 'idx_analysis_user_time'
+                """, (self.database,))
+
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute("""
+                    CREATE INDEX idx_analysis_user_time
+                    ON analysis_records (user_id, created_at DESC)
+                    """)
+                    print("创建分析记录索引成功")
             except Exception as e:
                 print(f"创建分析记录索引提示: {str(e)}")
-                
+
             try:
+                # 检查索引是否存在
                 cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_stats_user_date 
-                ON detection_stats (user_id, detection_date DESC)
-                """)
+                SELECT COUNT(1) FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE table_schema = %s AND table_name = 'detection_stats'
+                AND index_name = 'idx_stats_user_date'
+                """, (self.database,))
+
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute("""
+                    CREATE INDEX idx_stats_user_date
+                    ON detection_stats (user_id, detection_date DESC)
+                    """)
+                    print("创建统计数据索引成功")
             except Exception as e:
                 print(f"创建统计数据索引提示: {str(e)}")
             
+            # 检查并添加缺失的字段
+            self.add_missing_columns()
+
             # 提交事务
             self.connection.commit()
             print("数据库表和索引创建成功")
-            
+
         except Error as e:
             print(f"创建数据库表错误: {e}")
             self.connection.rollback()
             raise e
+        finally:
+            if cursor:
+                cursor.close()
+
+    def add_missing_columns(self):
+        """检查并添加缺失的字段"""
+        try:
+            cursor = self.connection.cursor()
+
+            # 检查analysis_records表是否存在danger_tip字段
+            check_column_query = """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = %s
+            AND table_name = 'analysis_records'
+            AND column_name = 'danger_tip'
+            """
+            cursor.execute(check_column_query, (self.database,))
+            result = cursor.fetchone()
+
+            if result and result[0] == 0:
+                # danger_tip字段不存在，添加它
+                alter_table_query = """
+                ALTER TABLE analysis_records
+                ADD COLUMN danger_tip TEXT
+                """
+                cursor.execute(alter_table_query)
+                print("添加danger_tip字段成功")
+
+            # 检查mushroom_type字段（用于兼容性）
+            check_mushroom_type_query = """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = %s
+            AND table_name = 'analysis_records'
+            AND column_name = 'mushroom_type'
+            """
+            cursor.execute(check_mushroom_type_query, (self.database,))
+            result = cursor.fetchone()
+
+            if result and result[0] == 0:
+                # mushroom_type字段不存在，添加它（作为detect_type的别名）
+                alter_table_query = """
+                ALTER TABLE analysis_records
+                ADD COLUMN mushroom_type VARCHAR(100)
+                """
+                cursor.execute(alter_table_query)
+                print("添加mushroom_type字段成功")
+
+                # 将detect_type的值同步到mushroom_type
+                sync_query = """
+                UPDATE analysis_records
+                SET mushroom_type = detect_type
+                WHERE mushroom_type IS NULL AND detect_type IS NOT NULL
+                """
+                cursor.execute(sync_query)
+                print("同步mushroom_type字段数据成功")
+
+        except Error as e:
+            print(f"添加缺失字段错误: {e}")
         finally:
             if cursor:
                 cursor.close()
